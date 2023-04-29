@@ -11,7 +11,7 @@ class GraphData(Dataset):
         for i in range(71):
             self.node_features.append(functional.one_hot(torch.tensor(i), num_classes=71))
         
-        self.node_features = torch.stack(self.node_features)
+        self.node_features = torch.stack(self.node_features).to(torch.float)
 
         super().__init__(root)
 
@@ -46,10 +46,17 @@ class GraphData(Dataset):
 
         with open(self.raw_dir + "/" +file_path, 'r') as fp:
 
+            multi_edge_detector = set()  # CURBS ALL MULTIPLE EDGES IN A GRAPH
+
             edge_src = []
             edge_dst = []
 
             for edges in fp.readlines():
+                if edges in multi_edge_detector:
+                    continue
+                
+                multi_edge_detector.add(edges)
+
                 e_1 = int(edges.split(" ")[0])
                 e_2 = int(edges.split(" ")[1].split('\n')[0])
  
@@ -60,11 +67,13 @@ class GraphData(Dataset):
         edge_src = torch.stack(edge_src)
         edge_dst = torch.stack(edge_dst)
         
-        edge_index = torch.stack([edge_src, edge_dst])
+        edge_index = torch.stack([edge_src, edge_dst]).to(torch.long)
+        pos_edge_index = edge_index[:,0:4]
 
         data_object = Data(
             x=self.node_features,
-            edge_index=edge_index
+            edge_index=edge_index,
+            pos_edge_index=pos_edge_index
         )
 
         torch.save(data_object, out_path)
