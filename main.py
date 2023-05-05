@@ -8,19 +8,18 @@ from GNN.autoencoder import VariationalLinearEncoder, VariationalGCNEncoder, Lin
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-epochs = 300
-lr = 1e-5
+epochs = 100
+lr = 3e-3
 
 
 dataset = GraphData(root="./data")
-loader = DataLoader(dataset, batch_size=64)
+loader = DataLoader(dataset, batch_size=1000)
 
 in_channels, out_channels = dataset.num_features, 64
 
 # model = GAE(GCNEncoder(in_channels, out_channels))
 
 model = GAE(LinearEncoder(in_channels, out_channels))
-model = torch.load("./checkpoint/model.pt")
 
 # model = VGAE(VariationalGCNEncoder(in_channels, out_channels))
 
@@ -28,23 +27,19 @@ model = torch.load("./checkpoint/model.pt")
 
 
 model = model.to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
 
 def train():
     l=0
     model.train()
     optimizer.zero_grad()
-    for idx in range(10000):
-        batch = dataset.get(idx)
-        if type(batch) == str:
-            # print(batch)
-            # print(idx)
-            continue
+    for batch in loader:
 
         batch = batch.to(device)
         z = model.encode(batch.x, batch.edge_index)
-        loss = model.recon_loss(z, batch.pos_edge_index)  
+        
+        loss = model.recon_loss(z, batch.edge_index)  
         # if args.variational:
         # loss = loss + (1 / batch.num_nodes) * model.kl_loss()
         loss.backward()
@@ -53,15 +48,8 @@ def train():
     return float(l)
 
 
-# @torch.no_grad()
-# def test(data):
-#     model.eval()
-#     z = model.encode(data.x, data.edge_index)
-#     return model.test(z, data.pos_edge_label_index, data.neg_edge_label_index)
-
 
 for epoch in range(1, epochs + 1):
     loss = train()
-    # auc, ap = test(test_data)
     print(f'Epoch: {epoch:03d}, loss: {loss:.4f}')
     torch.save(model, './checkpoint/model.pt')
